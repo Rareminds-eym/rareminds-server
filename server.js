@@ -189,6 +189,87 @@ app.get("/dashboard", async function (req, res) {
   });
 });
 
+
+
+
+// Insert intern data into MySQL
+app.post('/insertInterns', (req, res) => {
+  const interns = req.body.interns; // Expecting data to be sent in the body as { interns: [...] }
+
+  interns.forEach((intern) => {
+    const { fullName, company, skill, university, districtCollegeName } = intern;
+
+    const query = `
+      INSERT INTO interns (fullName, company, skill, university, districtCollegeName)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+
+    con.query(query, [fullName, company, skill, university, districtCollegeName], (err, result) => {
+      if (err) {
+        console.error('Error inserting intern:', err);
+        return res.status(500).send('Error inserting intern data');
+      }
+      console.log(`Intern ${fullName} inserted successfully.`);
+    });
+  });
+
+  res.send('Intern data inserted successfully');
+});
+
+// Insert company data into MySQL
+app.post('/insertCompanies', (req, res) => {
+  const companies = req.body.companies;
+
+  companies.forEach((company) => {
+    const { clientName, industry, location, logo, jobs } = company;
+
+    const query = `
+      INSERT INTO companies (clientName, industry, location, logo, jobs)
+      VALUES (?, ?, ?, ?, ?)
+    `;
+
+    con.query(query, [clientName, industry, location, logo, JSON.stringify(jobs)], (err, result) => {
+      if (err) {
+        console.error('Error inserting company:', err);
+        return res.status(500).send('Error inserting company data');
+      }
+      console.log(`Company ${clientName} inserted successfully.`);
+    });
+  });
+
+  res.send('Company data inserted successfully');
+});
+
+
+app.get('/getInterns', (req, res) => {
+  const query = 'SELECT * FROM interns';
+  
+  con.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching interns:', err);
+      return res.status(500).send('Error fetching interns');
+    }
+    console.log(results)
+    res.json(results); // Send the data as JSON to the frontend
+  });
+});
+
+
+app.get('/getCompanies', (req, res) => {
+  const query = 'SELECT * FROM companies';
+  
+  con.query(query, (err, results) => {
+    if (err) {
+      console.error('Error fetching companies:', err);
+      return res.status(500).send('Error fetching companies');
+    }
+    res.json(results); // Send the data as JSON to the frontend
+  });
+});
+
+
+
+
 app.get("/pages/:pageSlug", async function (req, res) {
   const pageSlug = req.params.pageSlug;
   let pageData = await mysqlQuery(con, {
