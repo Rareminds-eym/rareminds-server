@@ -9,7 +9,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const moment = require("moment");
 const http = require('http');
-// require("dotenv").config();
+require("dotenv").config();
 const axios = require("axios");
 const qs = require("qs");
 const session = require("express-session");
@@ -188,87 +188,6 @@ app.get("/dashboard", async function (req, res) {
     galleryData,
   });
 });
-
-
-
-
-// Insert intern data into MySQL
-app.post('/insertInterns', (req, res) => {
-  const interns = req.body.interns; // Expecting data to be sent in the body as { interns: [...] }
-
-  interns.forEach((intern) => {
-    const { fullName, company, skill, university, districtCollegeName } = intern;
-
-    const query = `
-      INSERT INTO interns (fullName, company, skill, university, districtCollegeName)
-      VALUES (?, ?, ?, ?, ?)
-    `;
-
-    con.query(query, [fullName, company, skill, university, districtCollegeName], (err, result) => {
-      if (err) {
-        console.error('Error inserting intern:', err);
-        return res.status(500).send('Error inserting intern data');
-      }
-      console.log(`Intern ${fullName} inserted successfully.`);
-    });
-  });
-
-  res.send('Intern data inserted successfully');
-});
-
-// Insert company data into MySQL
-app.post('/insertCompanies', (req, res) => {
-  const companies = req.body.companies;
-
-  companies.forEach((company) => {
-    const { clientName, industry, location, logo, jobs } = company;
-
-    const query = `
-      INSERT INTO companies (clientName, industry, location, logo, jobs)
-      VALUES (?, ?, ?, ?, ?)
-    `;
-
-    con.query(query, [clientName, industry, location, logo, JSON.stringify(jobs)], (err, result) => {
-      if (err) {
-        console.error('Error inserting company:', err);
-        return res.status(500).send('Error inserting company data');
-      }
-      console.log(`Company ${clientName} inserted successfully.`);
-    });
-  });
-
-  res.send('Company data inserted successfully');
-});
-
-
-app.get('/getInterns', (req, res) => {
-  const query = 'SELECT * FROM interns';
-  
-  con.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching interns:', err);
-      return res.status(500).send('Error fetching interns');
-    }
-    console.log(results)
-    res.json(results); // Send the data as JSON to the frontend
-  });
-});
-
-
-app.get('/getCompanies', (req, res) => {
-  const query = 'SELECT * FROM companies';
-  
-  con.query(query, (err, results) => {
-    if (err) {
-      console.error('Error fetching companies:', err);
-      return res.status(500).send('Error fetching companies');
-    }
-    res.json(results); // Send the data as JSON to the frontend
-  });
-});
-
-
-
 
 app.get("/pages/:pageSlug", async function (req, res) {
   const pageSlug = req.params.pageSlug;
@@ -1637,107 +1556,6 @@ app.get("/events/hackathon/:eventCategory/:slug", async function (req, res) {
   });
 });
 
-app.use(session({
-  secret: 'your-secret-key', // Replace with a secure secret key
-  resave: false,
-  saveUninitialized: true,
-  cookie: { secure: false } // Set secure: true if using HTTPS in production
-}));
-
-const CLIENT_ID = process.env.ZOHO_CLIENT_ID;
-const CLIENT_SECRET = process.env.ZOHO_CLIENT_SECRET;
-const REDIRECT_URI = process.env.ZOHO_REDIRECT_URI;
-
-// Endpoint for OAuth callback and token exchange
-app.get("/auth/zoho/callback", async (req, res) => {
-  const authCode = req.query.code;
-  if (!authCode) {
-    return res.status(400).send("Authorization code is missing.");
-  }
-
-  try {
-    const response = await axios.post(
-      "https://accounts.zoho.com/oauth/v2/token",
-      qs.stringify({
-        code: authCode,
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
-        grant_type: "authorization_code", // Grant type is authorization_code for exchanging the code for tokens
-      })
-    );
-
-    // Save the access and refresh tokens in the session
-    req.session.accessToken = response.data.access_token;
-    req.session.refreshToken = response.data.refresh_token;
-
-    console.log("Access Token:", response.data.access_token);
-    console.log("Refresh Token:", response.data.refresh_token);
-
-    res.redirect("/jobs"); // Redirect to the job listings page or a page of your choice
-  } catch (error) {
-    console.error("Error exchanging authorization code for tokens:", error.response?.data || error);
-    res.status(500).send("Failed to authenticate.");
-  }
-});
-
-// Endpoint to fetch job listings from Zoho Recruit
-app.get("/api/jobs", async (req, res) => {
-  let accessToken = req.session.accessToken; // Get access token from session
-  let refreshToken = req.session.refreshToken; // Get refresh token from session
-
-  if (!accessToken) return res.status(401).send("Unauthorized. Access token is missing.");
-
-  try {
-    // Try to fetch job listings
-    const response = await axios.get("https://recruit.zoho.com/recruit/v2/JobOpenings", {
-      headers: {
-        Authorization: `Bearer ${accessToken}`, // Send the access token in the Authorization header
-      },
-    });
-
-    const jobListings = response.data.data; // Get the job postings
-    res.json(jobListings); // Send the job listings as JSON to the frontend
-
-  } catch (error) {
-    // If the access token has expired, refresh it using the refresh token
-    if (error.response?.status === 401) {
-      console.log("Access token expired, refreshing...");
-
-      const refreshResponse = await axios.post(
-        "https://accounts.zoho.com/oauth/v2/token",
-        qs.stringify({
-          refresh_token: refreshToken,
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          grant_type: "refresh_token", // Grant type for refreshing the token
-        })
-      );
-
-      const newAccessToken = refreshResponse.data.access_token;
-      const newRefreshToken = refreshResponse.data.refresh_token;
-
-      // Save the new tokens in the session
-      req.session.accessToken = newAccessToken;
-      req.session.refreshToken = newRefreshToken;
-
-      // Retry fetching the job listings with the new access token
-      const retryResponse = await axios.get("https://recruit.zoho.com/recruit/v2/JobOpenings", {
-        headers: {
-          Authorization: `Bearer ${newAccessToken}`,
-        },
-      });
-
-      const jobListings = retryResponse.data.data;
-      res.json(jobListings); // Send the job listings as JSON
-    } else {
-      // Handle any other errors
-      console.error("Error fetching job postings:", error.response?.data || error);
-      res.status(500).send("Failed to fetch job postings.");
-    }
-  }
-});
-
 // Sample route for event data (your existing code)
 app.get("/events/hackathon/:eventCategory/:slug", async function (req, res) {
   let eventSlug = "hackathon/" + req.params.eventCategory + "/" + req.params.slug;
@@ -1784,9 +1602,9 @@ const bucketName = process.env.S3_BUCKET_NAME;
 // ------------------------ Middleware ------------------------
 app.use(
   cors({
-    origin: [process.env.VITE_PUBLIC_URL,process.env.RM_ADMIN],
+    origin: ["*"],
     methods: ["GET", "POST", "PUT", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization","Accept"],
   })
 );
 app.use(bodyParser.json());
@@ -1982,7 +1800,6 @@ app.delete("/gallery/:ImageURL", async (req, res) => {
   }
 });
 
-
 // ------------------------ Helper Functions ------------------------
 const fetchImagesFromS3 = async () => {
   const params = {
@@ -2128,6 +1945,117 @@ app.post("/addGallery", imgupload.single("image"), async (req, res) => {
   }
 });
 
+// Backend for Zoho Recruits Dashboard using API 
+
+// Middleware
+const corsOptions = {
+  origin: 'http://localhost:5173', // Adjust if necessary to match the frontend URL
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
+app.use(express.json());
+
+// Environment Variables
+let ACCESS_TOKEN = process.env.ACCESS_TOKEN;
+const REFRESH_TOKEN = process.env.REFRESH_TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
+const ZOHO_REGION = process.env.ZOHO_REGION;
+
+// Function to refresh access token
+const refreshAccessToken = async () => {
+    try {
+        const response = await axios.post(`https://${ZOHO_REGION}/oauth/v2/token`, null, {
+            params: {
+                grant_type: "refresh_token",
+                client_id: CLIENT_ID,
+                client_secret: CLIENT_SECRET,
+                refresh_token: REFRESH_TOKEN,
+            },
+        });
+
+        ACCESS_TOKEN = response.data.access_token;
+        console.log("✅ New Access Token Generated");
+    } catch (error) {
+        console.error("❌ Error refreshing token:", error.response?.data || error);
+    }
+};
+
+// Middleware to handle API requests with token refresh
+const fetchWithAuth = async (url) => {
+  try {
+      const response = await axios.get(url, {
+          headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      });
+      return response.data;
+  } catch (error) {
+      if (error.response?.data?.code === "INVALID_TOKEN") {
+          console.log("🔄 Token expired, refreshing...");
+          await refreshAccessToken();
+          return await fetchWithAuth(url);
+      }
+      throw new Error("Failed to fetch data.");
+  }
+};
+
+// Function to fetch all candidates using pagination
+const fetchAllCandidates = async (page = 1, accumulatedData = []) => {
+    try {
+        const response = await fetchWithAuth(`https://recruit.zoho.in/recruit/v2/Candidates?page=${page}&per_page=200`);
+
+        if (response.data && response.data.length > 0) {
+            accumulatedData = accumulatedData.concat(response.data);
+            console.log(`✅ Fetched page ${page}, total records: ${accumulatedData.length}`);
+
+            // If 200 records were returned, fetch the next page
+            if (response.data.length === 200) {
+                return fetchAllCandidates(page + 1, accumulatedData);
+            }
+        }
+
+        return accumulatedData; // Return all records once all pages are fetched
+    } catch (error) {
+        console.error("❌ Error fetching paginated candidates:", error.message);
+        throw new Error("Failed to fetch all candidates.");
+    }
+};
+
+// API to get all candidates (handles pagination)
+app.get("/api/candidates", async (req, res) => {
+    console.log("📢 Received request for /api/candidates");
+    try {
+        const candidates = await fetchAllCandidates();
+        res.json({ data: candidates });
+    } catch (error) {
+        console.error("❌ Error fetching candidates:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// API to fetch analytics (status-wise count)
+app.get("/api/analytics", async (req, res) => {
+    try {
+        const candidates = await fetchAllCandidates();
+        const reports = {};
+
+        // Generate report based on candidate status
+        candidates.forEach((candidate) => {
+            const status = candidate.Status || "Unknown";
+            reports[status] = (reports[status] || 0) + 1;
+        });
+
+        res.json({
+            reports: Object.entries(reports).map(([status, count]) => ({ Status: status, Count: count })),
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Refresh token every 55 minutes
+setInterval(refreshAccessToken, 55 * 60 * 1000);
 
 // ------------------------ Start the Server ------------------------
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
