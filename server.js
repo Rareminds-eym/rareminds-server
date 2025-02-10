@@ -9,7 +9,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const moment = require("moment");
 const http = require('http');
-require("dotenv").config();
+// require("dotenv").config();
 const axios = require("axios");
 const qs = require("qs");
 const session = require("express-session");
@@ -1784,7 +1784,7 @@ const bucketName = process.env.S3_BUCKET_NAME;
 // ------------------------ Middleware ------------------------
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://rareminds.in", "http://localhost:3000","https://dev.rareminds.in"],
+    origin: [process.env.VITE_PUBLIC_URL,process.env.RM_ADMIN],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
