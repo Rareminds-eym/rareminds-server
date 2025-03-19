@@ -15,9 +15,17 @@ const qs = require("qs");
 const session = require("express-session");
 const AWS = require('aws-sdk');
 const cors = require("cors");
+const con = require("./config/db");
+
+const enquiryRoutes = require("./routes/enquiries");
 
 const app = express();
 const PORT = 6069;
+
+app.use((req, res, next) => {
+  req.con = con;
+  next();
+});
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -35,16 +43,16 @@ const upload = multer({
   },
 });
 
-var con = mysql.createConnection({
-  host: "localhost",
-  user: "root",
-  password: "L1v)28L2ovSw",
-  database: "rareminds",
-});
+// var con = mysql.createConnection({
+//   host: "localhost",
+//   user: "root",
+//   password: "L1v)28L2ovSw",
+//   database: "rareminds",
+// });
 
-con.connect(function (err) {
-  if (err) throw err;
-});
+// con.connect(function (err) {
+//   if (err) throw err;
+// });
 
 const mysqlQuery = async (connection, queryConfig) => {
   // console.log("query config", queryConfig);
@@ -107,6 +115,19 @@ const checkRecordExists = async (tableName, column, value) => {
     return false;
   }
 };
+
+app.use("/enquiries", enquiryRoutes);
+
+app.get("/enquiriess", (req, res) => {
+  const query = "SELECT * FROM enquiries_institutions ORDER BY submitted_at DESC";
+  con.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching enquiries:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
 
 app.post("/login", async function (req, res) {
   const { email, password } = req.body;
@@ -328,24 +349,37 @@ app.get("/services/:slug", async function (req, res) {
 });
 
 app.get("/services/:userType/:serviceName", async function (req, res) {
-  const { userType, serviceName } = req.params;
+  try {
+    const { userType, serviceName } = req.params;
 
-  let serviceSlug = userType + "/services/" + serviceName;
+    if (!userType || !serviceName) {
+      return res.status(400).json({ error: "Missing required parameters." });
+    }
 
-  let serviceData = await mysqlQuery(con, {
-    sql: "SELECT * FROM rm_content WHERE ContentSlug = '" + serviceSlug + "'",
-  });
+    let serviceSlug = `${userType}/services/${serviceName}`;
 
-  let servicePrograms = await mysqlQuery(con, {
-    sql:
-      "SELECT * FROM rm_content_details WHERE ContentId = " +
-      serviceData[0].ContentId,
-  });
+    let serviceData = await mysqlQuery(con, {
+      sql: "SELECT * FROM rm_content WHERE ContentSlug = ?",
+      values: [serviceSlug],
+    });
 
-  res.send({
-    serviceData: serviceData[0],
-    servicePrograms,
-  });
+    if (!serviceData || serviceData.length === 0) {
+      return res.status(404).json({ error: "Service not found." });
+    }
+
+    let servicePrograms = await mysqlQuery(con, {
+      sql: "SELECT * FROM rm_content_details WHERE ContentId = ?",
+      values: [serviceData[0].ContentId],
+    });
+
+    res.status(200).json({
+      serviceData: serviceData[0],
+      servicePrograms,
+    });
+  } catch (error) {
+    console.error("Error fetching service details:", error.message);
+    res.status(500).json({ error: "Internal Server Error. Please try again." });
+  }
 });
 
 app.post("/services/edit/:slug", async function (req, res) {
