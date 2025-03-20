@@ -1983,7 +1983,7 @@ app.post("/addGallery", imgupload.single("image"), async (req, res) => {
 
 // Middleware
 const corsOptions = {
-  origin: 'http://localhost:5173', // Adjust if necessary to match the frontend URL
+  origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
@@ -2093,3 +2093,5 @@ setInterval(refreshAccessToken, 55 * 60 * 1000);
 
 // ------------------------ Start the Server ------------------------
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+
+
