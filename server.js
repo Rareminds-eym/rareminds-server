@@ -20,7 +20,7 @@ const con = require("./config/db");
 const enquiryRoutes = require("./routes/enquiries");
 
 const app = express();
-const PORT = 9000;
+const PORT = 6069;
 
 app.use((req, res, next) => {
   req.con = con;
