@@ -118,16 +118,16 @@ const checkRecordExists = async (tableName, column, value) => {
 
 app.use("/enquiries", enquiryRoutes);
 
-app.get("/enquiriess", (req, res) => {
-  const query = "SELECT * FROM enquiries_institutions ORDER BY submitted_at DESC";
-  con.query(query, (err, results) => {
-    if (err) {
-      console.error("Error fetching enquiries:", err);
-      return res.status(500).json({ error: "Database error" });
-    }
-    res.json(results);
-  });
-});
+// app.get("/enquiriess", (req, res) => {
+//   const query = "SELECT * FROM enquiries_institutions ORDER BY submitted_at DESC";
+//   con.query(query, (err, results) => {
+//     if (err) {
+//       console.error("Error fetching enquiries:", err);
+//       return res.status(500).json({ error: "Database error" });
+//     }
+//     res.json(results);
+//   });
+// });
 
 app.post("/login", async function (req, res) {
   const { email, password } = req.body;
