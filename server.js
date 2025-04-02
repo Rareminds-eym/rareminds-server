@@ -939,6 +939,48 @@ app.get("/blogs", async function (req, res) {
   });
 });
 
+
+
+
+//delete option 
+app.delete('/delete-content/:id', (req, res) => {
+  const contentId = parseInt(req.params.id, 10);
+  console.log("🛑 Received DELETE request for ContentId:", contentId);
+
+  if (isNaN(contentId)) {
+      console.error("❌ Invalid ContentId:", req.params.id);
+      return res.status(400).json({ error: 'Invalid ContentId' });
+  }
+
+  if (!con) {
+      console.error("❌ MySQL Connection Not Established");
+      return res.status(500).json({ error: 'Database connection not established' });
+  }
+
+  const sql = 'DELETE FROM rm_content WHERE ContentId = ?';
+  
+  con.query(sql, [contentId], (err, result) => {
+      if (err) {
+          console.error("❌ Database Query Error:", err.message);
+          return res.status(500).json({ error: 'Database error', details: err.message });
+      }
+
+      console.log("📊 SQL Execution Result:", result);
+      
+      if (result.affectedRows === 0) {
+          console.warn("🚫 No content found for deletion.");
+          return res.status(404).json({ message: 'Content not found' });
+      }
+
+      console.log("✅ Content deleted successfully.");
+      res.json({ message: 'Content deleted successfully' });
+  });
+});
+
+
+
+
+
 app.get("/blogs/:slug", async function (req, res) {
   const { slug } = req.params;
 
@@ -1636,7 +1678,8 @@ const bucketName = process.env.S3_BUCKET_NAME;
 // ------------------------ Middleware ------------------------
 app.use(
   cors({
-    origin: ["*"],
+    // origin: ["*"],
+    origin: ['http://localhost:3000', 'http://localhost:5173'],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization","Accept"],
   })
